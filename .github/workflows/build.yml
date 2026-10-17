@@ -26,9 +26,10 @@ jobs:
 
       - name: Run PlatformIO Build
         run: pio run
+        working-directory: ./Esp32Code   # <--- Tells PlatformIO to run inside your folder
 
       - name: Upload Firmware Binary Artifact
         uses: actions/upload-artifact@v4
         with:
           name: esp32-firmware
-          path: .pio/build/esp32dev/firmware.bin
+          path: Esp32Code/.pio/build/esp32dev/firmware.bin  # <--- Points to the binary inside the subfolder
