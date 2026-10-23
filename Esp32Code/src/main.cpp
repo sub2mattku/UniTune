@@ -60,6 +60,12 @@ Preferences prefs;
 DNSServer dns;
 AsyncWebServer server(80);
 
+static inline uint8_t clampLimit(long v) {
+  if (v < LIMIT_MIN) return LIMIT_MIN;
+  if (v > LIMIT_MAX) return LIMIT_MAX;
+  return (uint8_t)v;
+}
+
 // ----------------------------------------------------------------- checksum
 static uint16_t xiaomiChecksum(const uint8_t *f, size_t total) {
   // sum bytes from LEN (index 2) up to (not including) the 2 checksum bytes
@@ -89,9 +95,12 @@ struct Relay {
   Stream *out;
   bool fromDash;
   uint8_t buf[64];
-  size_t  n = 0;          // bytes collected
-  size_t  need = 0;       // total expected frame size (0 = unknown yet)
-  uint32_t lastByteMs = 0;
+  size_t  n;              // bytes collected
+  size_t  need;           // total expected frame size (0 = unknown yet)
+  uint32_t lastByteMs;
+
+  Relay(Stream *i, Stream *o, bool dash)
+    : in(i), out(o), fromDash(dash), n(0), need(0), lastByteMs(0) {}
 
   void flushRaw() { if (n) { out->write(buf, n); n = 0; need = 0; } }
 
@@ -143,8 +152,8 @@ struct Relay {
   }
 };
 
-Relay dashToEsc{&dashSerial, &escSerial, true};
-Relay escToDash{&escSerial, &dashSerial, false};
+Relay dashToEsc(&dashSerial, &escSerial, true);
+Relay escToDash(&escSerial, &dashSerial, false);
 
 // ------------------------------------------------------------------ panic mode
 static void panicTask() {
@@ -196,10 +205,10 @@ static void setupWeb() {
   WiFi.softAP("UniTune-Setup");                  // open AP; add a password as 2nd arg for WPA2
   dns.start(53, "*", WiFi.softAPIP());           // captive portal: every hostname -> us
 
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *r) { r->send_P(200, "text/html", INDEX_HTML); });
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *r) { r->send(200, "text/html", INDEX_HTML); });
   server.on("/api/state", HTTP_GET, [](AsyncWebServerRequest *r) { r->send(200, "application/json", stateJson()); });
   server.on("/api/set", HTTP_GET, [](AsyncWebServerRequest *r) {
-    if (r->hasParam("limit")) maxSpeedLimit = constrain(r->getParam("limit")->value().toInt(), LIMIT_MIN, LIMIT_MAX);
+    if (r->hasParam("limit")) maxSpeedLimit = clampLimit(r->getParam("limit")->value().toInt());
     if (r->hasParam("zs"))    enableZeroStart = r->getParam("zs")->value().toInt() != 0;
     r->send(200, "application/json", stateJson());
   });
@@ -220,7 +229,7 @@ static void setupWeb() {
 void setup() {
   Serial.begin(115200);
   prefs.begin("unitune", false);
-  maxSpeedLimit   = constrain(prefs.getUChar("limit", 30), LIMIT_MIN, LIMIT_MAX);
+  maxSpeedLimit   = clampLimit(prefs.getUChar("limit", 30));
   enableZeroStart = prefs.getBool("zs", true);
 
   escSerial.setRxBufferSize(512);
