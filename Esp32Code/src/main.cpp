@@ -308,8 +308,8 @@ setInterval(()=>api('/api/state'),2000);api('/api/state');
 static String stateJson() {
   return String("{\"limit\":") + maxSpeedLimit + ",\"zeroStart\":" + (enableZeroStart ? "true" : "false") +
          ",\"panic\":" + (panicMode ? "true" : "false") +
-         ",\"rewrite\":") + (enableRewrite() ? "true" : "false") +
-         ",\"passive\":") + (PASSIVE_SNIFF ? "true" : "false") +
+         ",\"rewrite\":" + (enableRewrite() ? "true" : "false") +
+         ",\"passive\":" + (PASSIVE_SNIFF ? "true" : "false") +
          "}";
 }
 
